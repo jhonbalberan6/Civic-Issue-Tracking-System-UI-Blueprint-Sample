@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CivicSync — Tuguegarao City Offline-First Issue Tracking Blueprint</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    .arch-node { transition: all 0.2s ease; }
+    .arch-node:hover { transform: translateY(-2px); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900">
+
+  <!-- Sticky Top Navigation & Demo Control Bar -->
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- Brand / Title -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-slate-900 text-base sm:text-lg leading-tight">CivicSync Tuguegarao</h1>
+            <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              Offline-First LGU System
+            </span>
+          </div>
+          <p class="text-xs text-slate-500">Static-Issue Triage • Vendor SLA Accountability • Before/After Verification</p>
+        </div>
+      </div>
+
+      <!-- Focused 4-Tab Demo Navigation Pills -->
+      <nav class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto max-w-full" aria-label="Blueprint Sections">
+        <button onclick="switchSection('arch')" data-nav="arch" class="nav-btn active px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-xs whitespace-nowrap transition">
+          1. Data &amp; Sync
+        </button>
+        <button onclick="switchSection('citizen')" data-nav="citizen" class="nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 whitespace-nowrap transition">
+          2. Citizen App
+        </button>
+        <button onclick="switchSection('admin')" data-nav="admin" class="nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 whitespace-nowrap transition">
+          3. Admin Portal
+        </button>
+        <button onclick="switchSection('specs')" data-nav="specs" class="nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 whitespace-nowrap transition">
+          4. Core Engines
+        </button>
+      </nav>
+
+      <!-- Global Offline / Online Simulator Toggle -->
+      <button id="network-toggle" onclick="toggleNetworkState()" class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border transition shadow-xs bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100">
+        <span id="network-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+        <span id="network-label">Mode: Online (Synced)</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-10">
+
+    <!-- SECTION 1: SYSTEM ARCHITECTURE & DATA FLOW -->
+    <section id="sec-arch" class="blueprint-section space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+        <div>
+          <span class="text-xs font-mono font-semibold uppercase tracking-wider text-indigo-600">01 / System Architecture</span>
+          <h2 class="text-xl sm:text-2xl font-bold text-slate-900">Offline-First Pipeline &amp; Split Database Lifecycle</h2>
+          <p class="text-sm text-slate-600 max-w-2xl">Click any architecture stage below to inspect how offline reports sync, deduplicate, and move from <code class="text-indigo-600 font-semibold">Current</code> to <code class="text-indigo-600 font-semibold">Archived</code>.</p>
+        </div>
+        <span class="text-xs text-slate-500 font-mono">Click any node to inspect details ↓</span>
+      </div>
+
+      <!-- Visual Flow Diagram -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+
+          <!-- Stage 1: Offline Client Edge -->
+          <div onclick="inspectNode('client')" class="arch-node cursor-pointer lg:col-span-3 rounded-2xl border-2 border-indigo-200 bg-indigo-50/40 hover:bg-indigo-50 hover:border-indigo-400 p-4 flex flex-col justify-between group">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-indigo-100 text-indigo-700 rounded-md">Edge Layer</span>
+                <span class="text-xs text-indigo-600 font-semibold group-hover:translate-x-0.5 transition">Inspect →</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-base mb-1">Offline-First Client</h3>
+              <p class="text-xs text-slate-600 mb-4">Works inside dead zones &amp; typhoon brownouts via local storage + background sync.</p>
+              <div class="space-y-2 text-xs">
+                <div class="bg-white p-2.5 rounded-xl border border-indigo-100 shadow-2xs">
+                  <div class="font-semibold text-slate-800">📱 Citizen PWA</div>
+                  <div class="text-[11px] text-slate-500">IndexedDB Queue + 350KB Photo</div>
+                </div>
+                <div class="bg-white p-2.5 rounded-xl border border-indigo-100 shadow-2xs">
+                  <div class="font-semibold text-slate-800">🖥️ Admin &amp; Field Portal</div>
+                  <div class="text-[11px] text-slate-500">Cached Tuguegarao Vector Map</div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-indigo-100 flex items-center justify-between text-[11px] font-mono text-indigo-700">
+              <span>Local Queue Status:</span>
+              <span id="arch-sync-status" class="font-bold">Ready</span>
+            </div>
+          </div>
+
+          <!-- Arrow Connector -->
+          <div class="lg:col-span-1 flex items-center justify-center">
+            <div class="flex lg:flex-col items-center gap-1 text-slate-400">
+              <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">Sync</span>
+              <svg class="w-6 h-6 rotate-90 lg:rotate-0 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Stage 2: Ingestion & Triage Pipeline -->
+          <div onclick="inspectNode('triage')" class="arch-node cursor-pointer lg:col-span-3 rounded-2xl border-2 border-amber-200 bg-amber-50/40 hover:bg-amber-50 hover:border-amber-400 p-4 flex flex-col justify-between group">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-amber-100 text-amber-800 rounded-md">Ingestion</span>
+                <span class="text-xs text-amber-700 font-semibold group-hover:translate-x-0.5 transition">Inspect →</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-base mb-1">Triage &amp; Deduplication</h3>
+              <p class="text-xs text-slate-600 mb-3">Prevents duplicate floods, routes to LGU departments, and starts SLA clocks.</p>
+              <ul class="space-y-1.5 text-xs text-slate-700">
+                <li class="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-amber-100">
+                  <span class="text-amber-600 font-bold">1.</span> Spatial Radius Dedupe (30m)
+                </li>
+                <li class="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-amber-100">
+                  <span class="text-amber-600 font-bold">2.</span> Auto-Dept &amp; Severity Tag
+                </li>
+                <li class="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-amber-100">
+                  <span class="text-amber-600 font-bold">3.</span> SLA Countdown Init
+                </li>
+              </ul>
+            </div>
+            <div class="mt-4 pt-3 border-t border-amber-100 text-[11px] font-mono text-amber-800">
+              Parent Ticket Clustering
+            </div>
+          </div>
+
+          <!-- Arrow Connector -->
+          <div class="lg:col-span-1 flex items-center justify-center">
+            <div class="flex lg:flex-col items-center gap-1 text-slate-400">
+              <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">Write</span>
+              <svg class="w-6 h-6 rotate-90 lg:rotate-0 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Stage 3: Split Database (Current vs Archived) -->
+          <div class="lg:col-span-4 grid grid-rows-2 gap-3">
+            <!-- Current DB -->
+            <div onclick="inspectNode('current_db')" class="arch-node cursor-pointer rounded-2xl border-2 border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50 hover:border-emerald-400 p-4 group">
+              <div class="flex items-center justify-between mb-1">
+                <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-emerald-100 text-emerald-800 rounded-md">Active Store</span>
+                <span class="text-xs text-emerald-700 font-semibold group-hover:translate-x-0.5 transition">Inspect →</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-sm">CURRENT Database (Live Operations)</h3>
+              <p class="text-xs text-slate-600 mt-1">Feeds <span class="font-semibold text-slate-800">Citizen "Problems Near You"</span> &amp; <span class="font-semibold text-slate-800">Admin Live Map</span>. Requires <span class="underline decoration-emerald-500 font-medium">"After" Photo</span> to resolve.</p>
+            </div>
+
+            <!-- Archived DB -->
+            <div onclick="inspectNode('archived_db')" class="arch-node cursor-pointer rounded-2xl border-2 border-slate-300 bg-slate-100/70 hover:bg-slate-100 hover:border-slate-500 p-4 group">
+              <div class="flex items-center justify-between mb-1">
+                <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-slate-200 text-slate-800 rounded-md">Historical Store</span>
+                <span class="text-xs text-slate-700 font-semibold group-hover:translate-x-0.5 transition">Inspect →</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-sm">ARCHIVED Database (Resolved + Proof)</h3>
+              <p class="text-xs text-slate-600 mt-1">Feeds <span class="font-semibold text-slate-800">Spatial Hotspot Heatmaps</span> &amp; <span class="font-semibold text-slate-800">Vendor SLA Audits</span>.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Node Inspector Drawer -->
+        <div id="arch-inspector" class="mt-6 bg-slate-900 text-slate-100 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span id="inspector-badge" class="px-2 py-0.5 text-[10px] font-mono uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 rounded">Selected Node: Client Edge</span>
+              <h4 id="inspector-title" class="font-bold text-white text-sm sm:text-base">Offline-First Progressive Web App (PWA)</h4>
+            </div>
+            <p id="inspector-desc" class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Citizens can capture photos, drop GPS pins, and write descriptions even inside dead zones. Photos are automatically compressed client-side to ~350 KB and stored in IndexedDB until connectivity resumes.
+            </p>
+          </div>
+          <div id="inspector-tags" class="flex flex-wrap gap-1.5 shrink-0">
+            <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 font-mono text-[11px]">IndexedDB</span>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 font-mono text-[11px]">Service Worker</span>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 font-mono text-[11px]">WebP Compression</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: CITIZEN MOBILE APP INTERACTIVE PROTOTYPE -->
+    <section id="sec-citizen" class="blueprint-section hidden space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+        <div>
+          <span class="text-xs font-mono font-semibold uppercase tracking-wider text-emerald-600">02 / Citizen Experience</span>
+          <h2 class="text-xl sm:text-2xl font-bold text-slate-900">Citizen Mobile App — Tuguegarao Field Prototype</h2>
+          <p class="text-sm text-slate-600 max-w-2xl">Hyperlocalized for Tuguegarao's 4 chronic urban issues: Flood-Triggering Drainage, Dark Spots, Illegal Dumping, and Tricycle/Commuter Bottlenecks.</p>
+        </div>
+      </div>
+
+      <!-- 3 Phone Screens Side-by-Side (Responsive Grid) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+
+        <!-- PHONE 1: REPORT ISSUE + DEDUPLICATION PROMPT -->
+        <div class="bg-slate-900 rounded-[2.2rem] p-3 shadow-xl border-4 border-slate-800">
+          <div class="bg-white rounded-[1.7rem] overflow-hidden flex flex-col h-[560px]">
+            <!-- Status Bar -->
+            <div class="px-5 pt-3 pb-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[11px] font-semibold">
+              <span class="text-slate-800">9:41 AM</span>
+              <span class="citizen-net-badge px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px]">● Online</span>
+            </div>
+
+            <!-- Screen Header -->
+            <div class="px-4 py-3 border-b border-slate-100">
+              <span class="text-[10px] font-mono uppercase text-indigo-600 font-bold">Screen 1A • Citizen View</span>
+              <h3 class="font-bold text-slate-900 text-base">Report an Issue</h3>
+            </div>
+
+            <!-- Form Body -->
+            <div class="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
+              <!-- Photo Upload Box -->
+              <div onclick="simulatePhotoUpload()" id="citizen-photo-box" class="cursor-pointer border-2 border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50 rounded-2xl p-4 text-center transition">
+                <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-1.5">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                  </svg>
+                </div>
+                <p id="citizen-photo-text" class="font-semibold text-slate-800">Tap to Upload / Capture Photo</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">Auto-compressed to 350KB for offline queue</p>
+              </div>
+
+              <!-- Category & Location -->
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 mb-1">Issue Category</label>
+                  <select class="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-800">
+                    <option>Flood Drainage / Canal</option>
+                    <option>Dark Spot / Streetlight</option>
+                    <option>Garbage / Dumping Hotspot</option>
+                    <option>Sidewalk / Commuter Chokepoint</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 mb-1">GPS Location</label>
+                  <div class="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] font-mono text-slate-700 truncate">
+                    📍 Caritan Centro (Locked)
+                  </div>
+                </div>
+              </div>
+
+              <!-- Details Input -->
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Fill Details</label>
+                <textarea rows="2" class="w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500" placeholder="Describe the issue...">Clogged drainage canal filled with plastic waste near Caritan market intersection; floods quickly during rain.</textarea>
+              </div>
+
+              <!-- Smart Deduplication Alert -->
+              <div class="rounded-xl bg-amber-50 border border-amber-200 p-2.5 space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-bold text-amber-900">⚠️ Similar issue 18m away</span>
+                  <span class="text-[10px] font-mono bg-amber-200/70 text-amber-900 px-1.5 py-0.5 rounded">12 Reports</span>
+                </div>
+                <p class="text-[11px] text-amber-800">"Clogged Storm Canal — Caritan Centro" is already active.</p>
+                <button onclick="showToast('Upvoted Ticket #109! You are now subscribed to flood-clearing updates.')" class="w-full py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold text-[11px] transition">
+                  + Upvote & Follow Existing Issue
+                </button>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="p-3 border-t border-slate-100 bg-white">
+              <button onclick="submitCitizenReport()" id="citizen-submit-btn" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm transition">
+                Submit New Report
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PHONE 2: PROBLEMS NEAR YOU (OFFLINE VECTOR MAP) -->
+        <div class="bg-slate-900 rounded-[2.2rem] p-3 shadow-xl border-4 border-slate-800">
+          <div class="bg-white rounded-[1.7rem] overflow-hidden flex flex-col h-[560px]">
+            <!-- Status Bar -->
+            <div class="px-5 pt-3 pb-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[11px] font-semibold">
+              <span class="text-slate-800">9:41 AM</span>
+              <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px]">Cached Map Ready</span>
+            </div>
+
+            <!-- Screen Header -->
+            <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <span class="text-[10px] font-mono uppercase text-emerald-600 font-bold">Screen 1B • Discovery</span>
+                <h3 class="font-bold text-slate-900 text-base">Problems Near You</h3>
+              </div>
+              <span class="text-[11px] font-semibold text-slate-500">Tuguegarao Centro</span>
+            </div>
+
+            <!-- Interactive Vector Street Map Mockup (Tuguegarao Centro & Cagayan River) -->
+            <div class="relative flex-1 bg-slate-100 overflow-hidden">
+              <!-- Stylized SVG Map of Tuguegarao City Centro & Cagayan River -->
+              <svg class="w-full h-full" viewBox="0 0 300 320" fill="none">
+                <rect width="300" height="320" fill="#f1f5f9"/>
+                <!-- Cagayan River Curve on West/South -->
+                <path d="M-10 180 Q 65 210, 85 330 L -10 330 Z" fill="#bae6fd"/>
+                <path d="M-10 180 Q 65 210, 85 330" stroke="#38bdf8" stroke-width="3"/>
+                <text x="8" y="275" fill="#0369a1" font-size="9" font-family="Inter" font-weight="700" transform="rotate(28 8 275)">Cagayan River</text>
+                <!-- Buntun Bridge -->
+                <rect x="18" y="212" width="46" height="8" rx="2" fill="#94a3b8" transform="rotate(-18 18 212)"/>
+                <text x="14" y="203" fill="#475569" font-size="8" font-family="JetBrains Mono" font-weight="600">Buntun Br.</text>
+
+                <!-- City Blocks (Centro, Ugac, Caritan) -->
+                <rect x="45" y="20" width="95" height="85" rx="10" fill="#e2e8f0"/>
+                <rect x="155" y="20" width="125" height="85" rx="10" fill="#e2e8f0"/>
+                <rect x="65" y="125" width="75" height="85" rx="10" fill="#e2e8f0"/>
+                <rect x="155" y="125" width="125" height="65" rx="10" fill="#dcfce7"/>
+                <rect x="155" y="205" width="125" height="85" rx="10" fill="#e2e8f0"/>
+
+                <!-- Main Roads (Luna St / Balzain Hwy / Bonifacio St) -->
+                <path d="M148 0V320M40 115H300" stroke="#ffffff" stroke-width="12"/>
+                <path d="M148 0V320M40 115H300" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 4"/>
+                <text x="152" y="75" fill="#64748b" font-size="8" font-family="JetBrains Mono" transform="rotate(90 152 75)">Balzain Hwy</text>
+                <text x="172" y="161" fill="#15803d" font-size="10" font-family="Inter" font-weight="600">Rizal Park</text>
+                <text x="68" y="42" fill="#64748b" font-size="9" font-family="Inter" font-weight="600">Caritan</text>
+                <text x="195" y="250" fill="#64748b" font-size="9" font-family="Inter" font-weight="600">Ugac Norte</text>
+              </svg>
+
+              <!-- Interactive Map Pins -->
+              <button onclick="selectCitizenPin('drain')" class="absolute top-12 left-16 group flex flex-col items-center">
+                <span class="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-bold shadow mb-1">Clogged Drain</span>
+                <div class="w-7 h-7 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg ring-4 ring-rose-500/30 font-bold text-xs">!</div>
+              </button>
+
+              <button onclick="selectCitizenPin('garbage')" class="absolute top-28 right-10 group flex flex-col items-center">
+                <span class="px-2 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-bold shadow mb-1">Garbage (12)</span>
+                <div class="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-lg ring-4 ring-amber-500/30 font-bold text-xs">◎</div>
+              </button>
+
+              <button onclick="selectCitizenPin('light')" class="absolute bottom-20 left-24 group flex flex-col items-center">
+                <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold shadow mb-1">Fixed Light</span>
+                <div class="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-lg ring-4 ring-emerald-500/30 font-bold text-xs">✓</div>
+              </button>
+            </div>
+
+            <!-- Selected Pin Bottom Sheet Drawer -->
+            <div id="citizen-pin-drawer" class="p-4 bg-white border-t border-slate-200 space-y-2.5">
+              <div class="flex items-start justify-between">
+                <div>
+                  <span id="pin-drawer-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">HIGH PRIORITY • SLA: 14h left</span>
+                  <h4 id="pin-drawer-title" class="font-bold text-slate-900 text-sm mt-1">Clogged Storm Drain — Caritan Centro</h4>
+                  <p id="pin-drawer-meta" class="text-[11px] text-slate-500">9 merged reports • Assigned to City Engineering</p>
+                </div>
+              </div>
+              <button onclick="showToast('Subscribed! You will receive Before/After photo proof once resolved.')" class="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition">
+                <span>🔔 Subscribe to Problem Updates</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PHONE 3: SUBSCRIBED UPDATES & STATUS CARDS -->
+        <div class="bg-slate-900 rounded-[2.2rem] p-3 shadow-xl border-4 border-slate-800">
+          <div class="bg-white rounded-[1.7rem] overflow-hidden flex flex-col h-[560px]">
+            <!-- Status Bar -->
+            <div class="px-5 pt-3 pb-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[11px] font-semibold">
+              <span class="text-slate-800">9:41 AM</span>
+              <span class="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px]">3 Subscribed</span>
+            </div>
+
+            <!-- Screen Header -->
+            <div class="px-4 py-3 border-b border-slate-100">
+              <span class="text-[10px] font-mono uppercase text-purple-600 font-bold">Screen 1C • Tracking Feed</span>
+              <h3 class="font-bold text-slate-900 text-base">Subscribed Problem Updates</h3>
+            </div>
+
+            <!-- Feed Cards matching user's sketch icons (Bell, Check, Target/Progress, Cross) -->
+            <div class="p-3.5 space-y-3 overflow-y-auto flex-1 text-xs">
+
+              <!-- Card 1: Resolved (✓) with Before/After Verification -->
+              <div class="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3 space-y-2">
+                <div class="flex items-start gap-2.5">
+                  <div class="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0">✓</div>
+                  <div class="flex-1">
+                    <div class="flex items-center justify-between">
+                      <span class="font-bold text-emerald-950">Illegal Dump Cleared — Centro 10</span>
+                      <span class="text-[10px] font-mono text-emerald-700">2h ago</span>
+                    </div>
+                    <p class="text-[11px] text-emerald-800 mt-0.5">Moved to Archived DB with field photo proof.</p>
+                  </div>
+                </div>
+                <!-- Before / After Thumbnail Strip -->
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                  <div class="bg-slate-200 rounded-lg p-2 text-center border border-slate-300">
+                    <span class="block text-[10px] font-mono font-bold text-slate-600">BEFORE</span>
+                    <span class="text-[10px] text-slate-500">📷 Curbside Waste</span>
+                  </div>
+                  <div class="bg-emerald-100 rounded-lg p-2 text-center border border-emerald-300">
+                    <span class="block text-[10px] font-mono font-bold text-emerald-800">AFTER (VERIFIED)</span>
+                    <span class="text-[10px] text-emerald-700">📷 Cleared Sidewalk</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 2: In Progress (◎) -->
+              <div class="rounded-2xl border border-amber-200 bg-amber-50/50 p-3 flex items-start gap-2.5">
+                <div class="w-7 h-7 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0">◎</div>
+                <div class="flex-1">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-slate-900">Sidewalk Bottleneck — Ugac Sur</span>
+                    <span class="text-[10px] font-mono text-amber-700">POSU</span>
+                  </div>
+                  <p class="text-[11px] text-slate-600 mt-0.5">Clearing obstructions blocking tricycle lane near school zone. SLA: 18h left.</p>
+                </div>
+              </div>
+
+              <!-- Card 3: Rejected / Merged (✕) with Clear Reason -->
+              <div class="rounded-2xl border border-rose-200 bg-rose-50/50 p-3 flex items-start gap-2.5">
+                <div class="w-7 h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold shrink-0">✕</div>
+                <div class="flex-1">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-rose-950">Report Merged into Parent</span>
+                    <span class="text-[10px] font-mono text-rose-700">#109</span>
+                  </div>
+                  <p class="text-[11px] text-rose-800 mt-0.5">Reason: Auto-clustered into active Caritan Drainage Ticket #109. You remain subscribed.</p>
+                </div>
+              </div>
+
+              <!-- Offline Queued Item (Shown dynamically when Offline Mode toggled) -->
+              <div id="citizen-offline-card" class="hidden rounded-2xl border border-indigo-300 bg-indigo-50 p-3 flex items-start gap-2.5">
+                <div class="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shrink-0">⏳</div>
+                <div class="flex-1">
+                  <span class="font-bold text-indigo-950">Queued Locally (Offline)</span>
+                  <p class="text-[11px] text-indigo-800 mt-0.5">Saved in IndexedDB. Will auto-upload when connection returns.</p>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Bottom Tab Indicator -->
+            <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 grid grid-cols-3 text-center text-[10px] font-semibold text-slate-500">
+              <span>Report</span>
+              <span>Near You</span>
+              <span class="text-indigo-600 font-bold">Updates (3)</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 3: ADMIN & DISPATCHER WEB PORTAL -->
+    <section id="sec-admin" class="blueprint-section hidden space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+        <div>
+          <span class="text-xs font-mono font-semibold uppercase tracking-wider text-purple-600">03 / Command & Dispatch</span>
+          <h2 class="text-xl sm:text-2xl font-bold text-slate-900">Tuguegarao LGU Admin & Dispatcher Portal</h2>
+          <p class="text-sm text-slate-600 max-w-2xl">Switch across the 4 operational views below—Live Barangay Map, Flood & Hotspot Mining, Triage & SLA Queue, and the Photo-Verified Resolution Gate.</p>
+        </div>
+      </div>
+
+      <!-- Browser Window Shell -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+        <!-- Browser Top Chrome -->
+        <div class="bg-slate-900 text-slate-300 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-400"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+            <span class="ml-2 text-xs font-mono text-slate-400">https://command.tuguegarao.gov.ph/dashboard</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-mono text-[11px]">2 Critical SLAs</span>
+            <span id="admin-sync-pill" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono text-[11px]">DB: Synced</span>
+          </div>
+        </div>
+
+        <!-- Portal Layout: Left Navigation Tabs + Main Workspace -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 min-h-[460px]">
+          <!-- Left Sidebar Navigation Tabs -->
+          <aside class="lg:col-span-3 bg-slate-50 border-b lg:border-b-0 lg:border-r border-slate-200 p-3 flex lg:flex-col gap-1.5 overflow-x-auto">
+            <button onclick="switchAdminView('map')" data-admin-tab="map" class="admin-tab-btn active flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold bg-slate-900 text-white shadow-sm whitespace-nowrap transition text-left">
+              <span class="text-base">🗺️</span>
+              <div>
+                <span class="block">Live Barangay Map</span>
+                <span class="block text-[10px] opacity-75 font-normal">FixMyStreet-style pins</span>
+              </div>
+            </button>
+            <button onclick="switchAdminView('heatmaps')" data-admin-tab="heatmaps" class="admin-tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-200/70 whitespace-nowrap transition text-left">
+              <span class="text-base">🔥</span>
+              <div>
+                <span class="block">Flood & Heatmaps</span>
+                <span class="block text-[10px] opacity-75 font-normal">Archived hotspot mining</span>
+              </div>
+            </button>
+            <button onclick="switchAdminView('triage')" data-admin-tab="triage" class="admin-tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-200/70 whitespace-nowrap transition text-left">
+              <span class="text-base">⚡</span>
+              <div>
+                <span class="block">Triage & SLA Queue</span>
+                <span class="block text-[10px] opacity-75 font-normal">Auto-routing & duplicates</span>
+              </div>
+            </button>
+            <button onclick="switchAdminView('records')" data-admin-tab="records" class="admin-tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-200/70 whitespace-nowrap transition text-left">
+              <span class="text-base">📋</span>
+              <div>
+                <span class="block">Records & Proof Gate</span>
+                <span class="block text-[10px] opacity-75 font-normal">Before/After verification</span>
+              </div>
+            </button>
+          </aside>
+
+          <!-- Main Admin Workspace -->
+          <div class="lg:col-span-9 p-5 bg-white">
+
+            <!-- VIEW 1: ALL DISTRICT UPDATES (LIVE MAP - TUGUEGARAO CITY) -->
+            <div id="admin-view-map" class="admin-view space-y-4">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 class="font-bold text-slate-900 text-lg">Tuguegarao City — Live Barangay &amp; District Map</h3>
+                  <p class="text-xs text-slate-500">Click any <strong class="text-slate-800">FixMyStreet-style map pin</strong> below to inspect attached citizen photos, triage status, and SLA details.</p>
+                </div>
+                <div class="flex items-center gap-2 text-[11px] font-semibold">
+                  <span class="flex items-center gap-1 px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200">● Critical SLA</span>
+                  <span class="flex items-center gap-1 px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200">● Active / Triaged</span>
+                  <span class="flex items-center gap-1 px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">● Resolved</span>
+                </div>
+              </div>
+
+              <!-- Interactive Tuguegarao City Map Canvas with FixMyStreet-style Pins -->
+              <div class="relative w-full aspect-[2/1] min-h-[280px] max-h-[380px] rounded-2xl border border-slate-200 bg-sky-50 overflow-hidden shadow-inner">
+                <!-- Geographically Accurate SVG Map of Tuguegarao City: Cagayan & Pinacanauan Rivers, Buntun Bridge, Maharlika Hwy & Barangays -->
+                <svg class="w-full h-full" viewBox="0 0 640 320" preserveAspectRatio="none" fill="none">
+                  <!-- Surrounding Municipalities (Solana across Cagayan River West, Enrile South, Peñablanca East) -->
+                  <rect width="640" height="320" fill="#e2e8f0"/>
+                  <text x="16" y="45" fill="#94a3b8" font-size="9" font-family="Inter" font-weight="600">SOLANA (Across River)</text>
+                  <text x="535" y="45" fill="#94a3b8" font-size="9" font-family="Inter" font-weight="600">PEÑABLANCA</text>
+                  <text x="275" y="312" fill="#94a3b8" font-size="9" font-family="Inter" font-weight="600">ENRILE BOUNDARY</text>
+
+                  <!-- Tuguegarao City Landmass (Bounded West by Cagayan River, South/East by Pinacanauan River) -->
+                  <path d="M125 0 L 495 0 L 520 110 L 480 215 L 350 285 L 175 270 L 115 195 L 130 95 Z" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+
+                  <!-- Cagayan River (West Boundary) -->
+                  <path d="M95 -10 C 115 65, 85 135, 102 195 C 122 255, 165 285, 220 330 L 65 330 C 45 255, 35 160, 55 -10 Z" fill="#bae6fd"/>
+                  <path d="M125 0 C 135 65, 110 135, 118 195 C 135 250, 175 275, 225 325" stroke="#38bdf8" stroke-width="2.5"/>
+                  <text x="72" y="128" fill="#0284c7" font-size="10" font-family="Inter" font-weight="800" transform="rotate(82 72 128)">CAGAYAN RIVER</text>
+
+                  <!-- Pinacanauan River (East/South Tributary meeting Cagayan River) -->
+                  <path d="M510 -10 C 525 85, 515 165, 470 220 C 420 275, 300 285, 195 275" stroke="#38bdf8" stroke-width="10" stroke-linecap="round"/>
+                  <text x="488" y="135" fill="#0284c7" font-size="8" font-family="Inter" font-weight="700" transform="rotate(75 488 135)">Pinacanauan River</text>
+
+                  <!-- Internal Barangay Polygons (All strictly inside Tuguegarao City) -->
+                  <!-- Caritan Centro (North-West) -->
+                  <polygon points="125,0 295,0 285,105 128,105" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+                  <!-- Balzain East & Pengue-Ruyu (North-East) -->
+                  <polygon points="295,0 495,0 512,105 285,105" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+                  <!-- Pallua & Buntun (Mid-West) -->
+                  <polygon points="128,105 205,105 205,205 118,195" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+                  <!-- Centro Poblacion (Heart of City) -->
+                  <polygon points="205,105 345,105 340,195 205,205" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+                  <!-- Annafunan / Linao (East Centro) -->
+                  <polygon points="345,105 512,105 470,215 340,195" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+                  <!-- Ugac Norte & Sur (South) -->
+                  <polygon points="145,200 340,195 455,215 345,278 185,265" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+
+                  <!-- Rizal Park / Cathedral Green Zone in Centro Poblacion -->
+                  <rect x="242" y="138" width="42" height="24" rx="5" fill="#dcfce7" stroke="#86efac"/>
+                  <text x="245" y="153" fill="#166534" font-size="7.5" font-family="Inter" font-weight="700">Rizal Park</text>
+
+                  <!-- Major Arterials: Buntun Hwy -> Luna St -> Balzain Road -->
+                  <path d="M55 172 L 265 155 L 485 95" stroke="#ffffff" stroke-width="8"/>
+                  <path d="M55 172 L 265 155 L 485 95" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4 3"/>
+
+                  <!-- North-South Maharlika Highway (Caritan -> Centro -> Ugac) -->
+                  <path d="M292 5 L 275 155 L 268 272" stroke="#ffffff" stroke-width="8"/>
+                  <path d="M292 5 L 275 155 L 268 272" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4 3"/>
+
+                  <!-- Buntun Bridge Span across Cagayan River -->
+                  <rect x="64" y="165" width="66" height="10" rx="2" fill="#475569" transform="rotate(-4 64 165)"/>
+                  <text x="62" y="158" fill="#1e293b" font-size="8.5" font-family="JetBrains Mono" font-weight="700">Buntun Bridge</text>
+
+                  <!-- Barangay Labels -->
+                  <text x="165" y="45" fill="#64748b" font-size="9.5" font-family="Inter" font-weight="700">CARITAN CENTRO</text>
+                  <text x="355" y="45" fill="#64748b" font-size="9.5" font-family="Inter" font-weight="700">BALZAIN EAST</text>
+                  <text x="218" y="124" fill="#334155" font-size="9.5" font-family="Inter" font-weight="800">CENTRO POBLACION</text>
+                  <text x="372" y="158" fill="#64748b" font-size="9" font-family="Inter" font-weight="700">ANNAFUNAN / LINAO</text>
+                  <text x="235" y="242" fill="#64748b" font-size="9.5" font-family="Inter" font-weight="700">UGAC NORTE &amp; SUR</text>
+                </svg>
+
+                <!-- FixMyStreet-Style Interactive Pin 1: Balzain East (Critical) -->
+                <button onclick="openTicketModal('108')" style="left: 61%; top: 27%;" class="absolute -translate-x-1/2 -translate-y-full group flex flex-col items-center focus:outline-none z-10" title="Click to inspect Ticket #108">
+                  <span class="px-2 py-0.5 rounded-md bg-slate-900/90 text-white text-[10px] font-semibold shadow mb-1 opacity-95 group-hover:scale-105 transition whitespace-nowrap">
+                    #108 Dark Spot • 📷
+                  </span>
+                  <div class="w-7 h-7 rounded-full rounded-bl-none -rotate-45 bg-rose-600 border-2 border-white shadow-lg flex items-center justify-center group-hover:scale-110 transition">
+                    <span class="rotate-45 text-white font-bold text-xs">!</span>
+                  </div>
+                </button>
+
+                <!-- FixMyStreet-Style Interactive Pin 2: Centro Poblacion (Active) -->
+                <button onclick="openTicketModal('104')" style="left: 44%; top: 53%;" class="absolute -translate-x-1/2 -translate-y-full group flex flex-col items-center focus:outline-none z-10" title="Click to inspect Ticket #104">
+                  <span class="px-2 py-0.5 rounded-md bg-slate-900/90 text-white text-[10px] font-semibold shadow mb-1 opacity-95 group-hover:scale-105 transition whitespace-nowrap">
+                    #104 Garbage (12) • 📷
+                  </span>
+                  <div class="w-7 h-7 rounded-full rounded-bl-none -rotate-45 bg-amber-500 border-2 border-white shadow-lg flex items-center justify-center group-hover:scale-110 transition">
+                    <span class="rotate-45 text-white font-bold text-xs">12</span>
+                  </div>
+                </button>
+
+                <!-- FixMyStreet-Style Interactive Pin 3: Caritan Centro (High Priority) -->
+                <button onclick="openTicketModal('109')" style="left: 34%; top: 26%;" class="absolute -translate-x-1/2 -translate-y-full group flex flex-col items-center focus:outline-none z-10" title="Click to inspect Ticket #109">
+                  <span class="px-2 py-0.5 rounded-md bg-slate-900/90 text-white text-[10px] font-semibold shadow mb-1 opacity-95 group-hover:scale-105 transition whitespace-nowrap">
+                    #109 Flood Canal • 📷
+                  </span>
+                  <div class="w-7 h-7 rounded-full rounded-bl-none -rotate-45 bg-rose-600 border-2 border-white shadow-lg flex items-center justify-center group-hover:scale-110 transition">
+                    <span class="rotate-45 text-white font-bold text-xs">9</span>
+                  </div>
+                </button>
+
+                <!-- FixMyStreet-Style Interactive Pin 4: Ugac Norte (Triaged) -->
+                <button onclick="openTicketModal('112')" style="left: 43%; top: 76%;" class="absolute -translate-x-1/2 -translate-y-full group flex flex-col items-center focus:outline-none z-10" title="Click to inspect Ticket #112">
+                  <span class="px-2 py-0.5 rounded-md bg-slate-900/90 text-white text-[10px] font-semibold shadow mb-1 opacity-95 group-hover:scale-105 transition whitespace-nowrap">
+                    #112 Sidewalk Block • 📷
+                  </span>
+                  <div class="w-7 h-7 rounded-full rounded-bl-none -rotate-45 bg-amber-500 border-2 border-white shadow-lg flex items-center justify-center group-hover:scale-110 transition">
+                    <span class="rotate-45 text-white font-bold text-xs">4</span>
+                  </div>
+                </button>
+
+                <!-- FixMyStreet-Style Interactive Pin 5: Pallua / Buntun Approach (Resolved) -->
+                <button onclick="openTicketModal('099')" style="left: 25%; top: 52%;" class="absolute -translate-x-1/2 -translate-y-full group flex flex-col items-center focus:outline-none z-10" title="Click to inspect Ticket #099">
+                  <span class="px-2 py-0.5 rounded-md bg-emerald-900/90 text-emerald-100 text-[10px] font-semibold shadow mb-1 opacity-95 group-hover:scale-105 transition whitespace-nowrap">
+                    #099 Fixed Light • ✓
+                  </span>
+                  <div class="w-7 h-7 rounded-full rounded-bl-none -rotate-45 bg-emerald-600 border-2 border-white shadow-lg flex items-center justify-center group-hover:scale-110 transition">
+                    <span class="rotate-45 text-white font-bold text-xs">✓</span>
+                  </div>
+                </button>
+
+                <!-- Interactive Hint Pill -->
+                <div class="absolute bottom-3 right-3 bg-white/95 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-[11px] font-medium text-slate-700">
+                  💡 All pins anchored inside Tuguegarao City boundaries • Click to inspect
+                </div>
+              </div>
+            </div>
+
+            <!-- VIEW 2: HEATMAPS & DATA MINING (STREAMLINED ARCHIVED DB HOTSPOT EXPLORER) -->
+            <div id="admin-view-heatmaps" class="admin-view hidden space-y-4">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="font-bold text-slate-900 text-lg">Archived DB Spatial Heatmap &amp; Hotspot Explorer</h3>
+                    <span id="hm-archived-badge" class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono text-[10px] font-bold">1,284 ARCHIVED TICKETS</span>
+                  </div>
+                  <p class="text-xs text-slate-500">Filters verified <code class="text-slate-700 font-semibold">Archived DB</code> records by issue type and season to pinpoint chronic 30m clusters and export clean spatial datasets.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <select id="heatmap-timeframe-select" onchange="updateHeatmapAnalytics()" aria-label="Filter by Timeframe" class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:border-slate-300 focus:outline-none focus:border-indigo-500">
+                    <option value="12m">Last 12 Months (All)</option>
+                    <option value="monsoon">Rainy / Typhoon Season (Jun–Nov)</option>
+                    <option value="dry">Dry / Summer Season (Dec–May)</option>
+                  </select>
+                  <select id="heatmap-category-select" onchange="updateHeatmapAnalytics()" aria-label="Filter by Issue Category" class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:border-slate-300 focus:outline-none focus:border-indigo-500">
+                    <option value="all">All Static Issue Categories (1,284)</option>
+                    <option value="drainage">Flood-Triggering Drainage &amp; Canals</option>
+                    <option value="lighting">Dark Spots &amp; Broken Streetlights</option>
+                    <option value="garbage">Uncollected Garbage &amp; Dumping Hotspots</option>
+                    <option value="cables">Hazardous Sidewalks &amp; Bottlenecks</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- 3 Focused Analyst KPIs -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div class="p-3 rounded-xl border border-slate-200 bg-slate-50">
+                  <span class="block text-[10px] font-mono uppercase text-slate-500">Resolved Volume</span>
+                  <span id="hm-kpi-count" class="text-base font-extrabold text-slate-900">418 Archived</span>
+                  <span id="hm-kpi-trend" class="block text-[10px] text-slate-600 mt-0.5">68% concentrated in top 3 barangays</span>
+                </div>
+                <div class="p-3 rounded-xl border border-rose-200 bg-rose-50/40">
+                  <span class="block text-[10px] font-mono uppercase text-rose-700">Chronic Repeat Clusters</span>
+                  <span id="hm-kpi-repeat" class="text-base font-extrabold text-rose-950">14 Hotspot Pins</span>
+                  <span id="hm-kpi-repeat-sub" class="block text-[10px] text-rose-700 mt-0.5">Cleared 3+ times in same 30m radius</span>
+                </div>
+                <div class="p-3 rounded-xl border border-emerald-200 bg-emerald-50/40">
+                  <span class="block text-[10px] font-mono uppercase text-emerald-800">Median Turnaround</span>
+                  <span id="hm-kpi-sla" class="text-base font-extrabold text-emerald-950">19.4 hrs</span>
+                  <span id="hm-kpi-dept" class="block text-[10px] text-emerald-700 mt-0.5">Primary: City Engineering Office</span>
+                </div>
+              </div>
+
+              <!-- Heatmap Map + Top Barangays & Analyst Takeaway -->
+              <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <!-- Left: Tuguegarao Archived Density Map -->
+                <div class="lg:col-span-7 relative rounded-2xl border border-slate-300 bg-slate-900 h-72 overflow-hidden p-4 flex flex-col justify-between">
+                  <!-- Matching Tuguegarao City Boundary Silhouette inside Heatmap -->
+                  <svg class="absolute inset-0 w-full h-full" viewBox="0 0 500 260" preserveAspectRatio="none" fill="none">
+                    <!-- City Landmass Outline -->
+                    <path d="M98 0 L 386 0 L 406 90 L 375 175 L 273 232 L 136 220 L 90 158 L 102 78 Z" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+                    <!-- Cagayan River (West) -->
+                    <path d="M98 0 C 106 53, 86 110, 92 158 C 105 203, 136 224, 175 260" stroke="#38bdf8" stroke-width="6" opacity="0.35"/>
+                    <!-- Pinacanauan River (East/South) -->
+                    <path d="M398 0 C 410 68, 402 134, 367 178 C 328 222, 234 230, 152 222" stroke="#38bdf8" stroke-width="5" opacity="0.35"/>
+                    <!-- Main Arterials -->
+                    <path d="M50 140 L 207 126 L 378 78" stroke="#64748b" stroke-width="2" opacity="0.5"/>
+                    <path d="M228 4 L 215 126 L 209 220" stroke="#64748b" stroke-width="2" opacity="0.5"/>
+                    <!-- Barangay Labels -->
+                    <text x="135" y="42" fill="#64748b" font-size="8" font-family="Inter" font-weight="700">CARITAN</text>
+                    <text x="285" y="42" fill="#64748b" font-size="8" font-family="Inter" font-weight="700">BALZAIN</text>
+                    <text x="178" y="112" fill="#94a3b8" font-size="8" font-family="Inter" font-weight="700">CENTRO</text>
+                    <text x="195" y="195" fill="#64748b" font-size="8" font-family="Inter" font-weight="700">UGAC</text>
+                  </svg>
+
+                  <div class="z-10 flex items-center justify-between">
+                    <span class="text-[11px] font-mono text-slate-300">ARCHIVED DB DENSITY • TUGUEGARAO CITY</span>
+                    <div class="flex items-center gap-1.5 text-[10px] font-mono text-slate-300">
+                      <span class="w-2 h-2 rounded-full bg-amber-300"></span> High
+                      <span class="w-2 h-2 rounded-full bg-rose-500 ml-1"></span> Moderate
+                    </div>
+                  </div>
+
+                  <!-- Dynamic Hotspot Blobs (All positioned strictly inside the Tuguegarao City polygon) -->
+                  <div id="hm-blob-primary" style="left: 26%; top: 14%;" class="absolute w-28 h-28 rounded-full bg-rose-500/60 blur-xl transition-all duration-500"></div>
+                  <div id="hm-blob-core" style="left: 31%; top: 20%;" class="absolute w-14 h-14 rounded-full bg-amber-300/85 blur-md transition-all duration-500"></div>
+                  <div id="hm-blob-secondary" style="left: 38%; top: 42%;" class="absolute w-24 h-24 rounded-full bg-rose-600/50 blur-xl transition-all duration-500"></div>
+                  <div id="hm-blob-tertiary" style="left: 36%; top: 62%;" class="absolute w-20 h-20 rounded-full bg-amber-400/45 blur-lg transition-all duration-500"></div>
+
+                  <!-- Top Cluster Callout -->
+                  <div id="hm-hotspot-tag-1" class="z-10 self-start px-2.5 py-1 rounded-lg bg-slate-950/80 border border-rose-400/40 text-[11px] text-rose-200 font-semibold">
+                    📍 Top Cluster: Caritan Centro &amp; Don Domingo (184 tickets)
+                  </div>
+
+                  <div class="z-10 flex items-center justify-between text-[11px] text-slate-200 bg-slate-800/90 backdrop-blur px-3 py-2 rounded-xl border border-slate-700">
+                    <span id="hm-bottom-summary">Pattern: 3.4x repeat clearings at same storm inlets before heavy rain.</span>
+                    <span id="hm-bottom-badge" class="text-indigo-300 font-mono font-bold shrink-0 ml-2">30m Grid</span>
+                  </div>
+                </div>
+
+                <!-- Right: Top Barangays + Pattern Summary + Clean Data Export -->
+                <div class="lg:col-span-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col justify-between space-y-3 text-xs">
+                  <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                      <h4 class="font-bold text-slate-900">Top Affected Barangays</h4>
+                      <span class="text-[10px] font-mono text-slate-500">From Archived DB</span>
+                    </div>
+
+                    <!-- Barangay Frequency Bars -->
+                    <div id="hm-barangay-bars" class="space-y-2">
+                      <!-- Populated dynamically by updateHeatmapAnalytics() -->
+                    </div>
+
+                    <!-- Concise Analyst Pattern Note -->
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-1">
+                      <span class="text-[10px] font-mono text-indigo-600 font-bold uppercase">Analyst Insight</span>
+                      <p id="hm-insight-text" class="text-[11px] text-slate-600 leading-relaxed">
+                        Caritan Canal #14 was cleared and re-opened 11 times in 12 months—flagging it for Engineering review rather than routine desilting.
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- Simple Export Buttons for Analyst's Own Tools (Excel / GIS) -->
+                  <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button onclick="exportAnalystData('CSV')" class="py-2 px-3 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-semibold text-[11px] transition">
+                      📄 Export CSV
+                    </button>
+                    <button onclick="exportAnalystData('GeoJSON')" class="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[11px] transition">
+                      🗺️ Export GeoJSON
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- VIEW 3: TRIAGE & SLA ENGINE (ADDED TAB) -->
+            <div id="admin-view-triage" class="admin-view hidden space-y-4">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 class="font-bold text-slate-900 text-lg">Static-Issue Triage & Third-Party Vendor Audit Matrix</h3>
+                  <p class="text-xs text-slate-500">Focuses strictly on <strong class="text-slate-700">static, verifiable infrastructure</strong> (ignoring transient traffic) so 24–48h dispatches guarantee clean Resolved metrics and vendor accountability.</p>
+                </div>
+                <span class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono text-xs font-semibold">Static-Only Filter Active</span>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div class="p-3.5 rounded-2xl border border-rose-200 bg-rose-50/40 space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-rose-950">1. Flood-Triggering Drainage & Clogged Canals</span>
+                    <span class="px-2 py-0.5 rounded bg-rose-600 text-white font-mono text-[10px]">SLA: 24h</span>
+                  </div>
+                  <p class="text-[11px] text-slate-600"><strong>Audit Target:</strong> City Engineering & Drainage Contractors</p>
+                  <p class="text-[11px] text-slate-500">Static silt/grating blockages remain on-site until cleared—giving crews a verifiable Before/After closure metric.</p>
+                </div>
+
+                <div class="p-3.5 rounded-2xl border border-amber-200 bg-amber-50/40 space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-amber-950">2. "Dark Spots" & Broken Streetlights</span>
+                    <span class="px-2 py-0.5 rounded bg-amber-600 text-white font-mono text-[10px]">SLA: 48h</span>
+                  </div>
+                  <p class="text-[11px] text-slate-600"><strong>Audit Target:</strong> Streetlight Maintenance Contractor / CAGELCO I</p>
+                  <p class="text-[11px] text-slate-500">Tracks pole-level warranty & contractor repair turnaround without adding extra admin paperwork.</p>
+                </div>
+
+                <div class="p-3.5 rounded-2xl border border-indigo-200 bg-indigo-50/40 space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-indigo-950">3. Uncollected Garbage & Illegal Dumping Hotspots</span>
+                    <span class="px-2 py-0.5 rounded bg-indigo-600 text-white font-mono text-[10px]">SLA: 24h</span>
+                  </div>
+                  <p class="text-[11px] text-slate-600"><strong>Audit Target:</strong> Third-Party Garbage Haulers & GSO</p>
+                  <p class="text-[11px] text-slate-500">Logs missed collection zones with timestamped citizen photos to audit hauler contract compliance.</p>
+                </div>
+
+                <div class="p-3.5 rounded-2xl border border-purple-200 bg-purple-50/40 space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-purple-950">4. Hazardous Sidewalks & Commuter Bottlenecks</span>
+                    <span class="px-2 py-0.5 rounded bg-purple-600 text-white font-mono text-[10px]">SLA: 48h</span>
+                  </div>
+                  <p class="text-[11px] text-slate-600"><strong>Audit Target:</strong> POSU &amp; Road/Sidewalk Contractors</p>
+                  <p class="text-[11px] text-slate-500">Tracks broken sidewalk slabs, illegal stall encroachments, and low-hanging wires along commuter corridors.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- VIEW 4: RECORDS & RESOLUTION PHOTO VERIFICATION GATE -->
+            <div id="admin-view-records" class="admin-view hidden space-y-4">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 class="font-bold text-slate-900 text-lg">Ticket Records & Resolution Proof Gate</h3>
+                  <p class="text-xs text-slate-500">Tickets cannot be archived as Resolved without attaching an "After" resolution photo.</p>
+                </div>
+                <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-mono text-xs font-semibold">Sorted by SLA Urgency</span>
+              </div>
+
+              <!-- Records Table / Cards -->
+              <div class="space-y-2.5 text-xs">
+                <!-- Ticket 1: Interactive Resolution Proof Gate -->
+                <div id="ticket-104-card" class="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div class="space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="font-mono font-bold text-slate-900">#104</span>
+                      <button onclick="openTicketModal('104')" class="font-bold text-indigo-700 hover:underline text-left">Illegal Dumping Hotspot — Bonifacio St., Centro</button>
+                      <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-semibold text-[10px]">12 Duplicates Merged</span>
+                      <span id="ticket-104-status" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold text-[10px]">SLA: 04h 15m left</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500">Triage: City General Services (GSO) • Before Photo attached by Citizen</p>
+                  </div>
+
+                  <!-- Interactive Proof Gate Action -->
+                  <div id="ticket-104-actions" class="flex items-center gap-2 shrink-0">
+                    <button onclick="attachResolutionProof()" id="btn-attach-proof" class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 font-semibold transition">
+                      📷 Attach "After" Photo
+                    </button>
+                    <button onclick="resolveTicket104()" id="btn-mark-resolved" disabled class="px-3 py-2 rounded-xl bg-slate-300 text-slate-500 font-semibold cursor-not-allowed transition" title="Upload After Photo first to unlock">
+                      ✓ Archive as Resolved
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Ticket 2 -->
+                <div class="rounded-2xl border border-slate-200 bg-white p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div class="space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="font-mono font-bold text-slate-900">#108</span>
+                      <button onclick="openTicketModal('108')" class="font-bold text-indigo-700 hover:underline text-left">Dark Spot & Broken Streetlight — Balzain East</button>
+                      <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-semibold text-[10px]">CRITICAL • SLA: 01h 50m</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500">Triage: Auto-Escalated Night Hazard • CAGELCO & Electrical Crew Alerted</p>
+                  </div>
+                  <button onclick="openTicketModal('108')" class="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 font-semibold text-[11px] shrink-0 transition">Inspect Photo & Details</button>
+                </div>
+
+                <!-- Ticket 3 -->
+                <div class="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div class="space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="font-mono font-bold text-slate-900">#099</span>
+                      <button onclick="openTicketModal('099')" class="font-bold text-indigo-700 hover:underline text-left">Broken Streetlight — Buntun Highway Approach</button>
+                      <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold text-[10px]">ARCHIVED • VERIFIED</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500">Before & After photos verified • Citizens notified</p>
+                  </div>
+                  <button onclick="openTicketModal('099')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] shrink-0 transition">✓ View Proof</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: CORE ARCHITECTURAL ENGINES (SPECIFICATION CARDS) -->
+    <section id="sec-specs" class="blueprint-section hidden space-y-4">
+      <div>
+        <span class="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">04 / Core Technical Pillars & Pitch Differentiation</span>
+        <h2 class="text-xl sm:text-2xl font-bold text-slate-900">Why CivicSync Wins LGU Buy-In: Static Focus & Vendor Accountability</h2>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <!-- Pillar 1 -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-2">
+          <div class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-base">🎯</div>
+          <h3 class="font-bold text-slate-900 text-sm">"Static" Over "Transient" Focus</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">Skips fleeting issues (double-parked cars) for <strong>static hazards</strong> (potholes, clogged drains, spaghetti wires) that stay put—guaranteeing clean 24–48h Resolved metrics.</p>
+        </div>
+
+        <!-- Pillar 2 -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-2">
+          <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-base">🧾</div>
+          <h3 class="font-bold text-slate-900 text-sm">Vendor Accountability Engine</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">Audits <strong>third-party contractors</strong> (garbage haulers, road crews, telcos) via SLA timers & photo proof—saving City Hall staff work instead of adding to it.</p>
+        </div>
+
+        <!-- Pillar 3 -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-2">
+          <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-base">📡</div>
+          <h3 class="font-bold text-slate-900 text-sm">Typhoon-Ready Offline Sync</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">Built for Cagayan Valley brownouts & dead zones: <strong>IndexedDB + WebP compression</strong> queues citizen & field-crew photos until signal returns.</p>
+        </div>
+
+        <!-- Pillar 4 -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-2">
+          <div class="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-base">📊</div>
+          <h3 class="font-bold text-slate-900 text-sm">Archived Hotspot Mining</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">Turns <code>Archived</code> closure logs into <strong>Spatial Hotspot Maps &amp; CSV/GeoJSON Exports</strong> so analysts spot repeat 30m clusters immediately.</p>
+        </div>
+
+        <!-- Pillar 5 -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-2">
+          <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-base">📸</div>
+          <h3 class="font-bold text-slate-900 text-sm">Before/After Proof Gate</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">Contractors cannot close a ticket or claim SLA credit without a geotagged <strong>"After" Photo</strong> broadcast to all subscribed citizens.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast Notification Banner (Replaces alert()) -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- FIXMYSTREET-STYLE PIN DETAIL MODAL -->
+  <div id="ticket-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4" onclick="closeTicketModal(event)">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span id="modal-ticket-id" class="px-2.5 py-0.5 rounded-md bg-white/15 font-mono text-xs font-bold">#104</span>
+          <h3 id="modal-ticket-title" class="font-bold text-sm sm:text-base">Overflowing Trash Bin — Bonifacio St.</h3>
+        </div>
+        <button onclick="closeTicketModal()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-200 transition" aria-label="Close modal">
+          ✕
+        </button>
+      </div>
+
+      <!-- Modal Body: Attached Photo + Full Ticket Metadata -->
+      <div class="p-5 grid grid-cols-1 md:grid-cols-12 gap-5 max-h-[82vh] overflow-y-auto">
+        <!-- Left Column: Attached Citizen Photo (and After Photo if resolved) -->
+        <div class="md:col-span-6 space-y-3">
+          <div class="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 relative">
+            <div id="modal-photo-render" class="w-full h-52 flex flex-col items-center justify-center p-4 text-center">
+              <!-- Dynamically rendered SVG/Visual Evidence Photo -->
+            </div>
+            <div class="px-3 py-2 bg-slate-900/85 text-white text-[11px] font-mono flex items-center justify-between">
+              <span id="modal-photo-caption">📷 Citizen Evidence (340 KB)</span>
+              <span id="modal-photo-gps" class="text-emerald-300">17.6132° N, 121.7270° E</span>
+            </div>
+          </div>
+
+          <!-- Resolution After-Photo Box (Shown if resolved or ready to verify) -->
+          <div id="modal-after-photo-box" class="hidden rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-xs">
+            <div class="flex items-center justify-between font-bold text-emerald-900 mb-1">
+              <span>✓ Verified Resolution ("After" Photo)</span>
+              <span class="font-mono text-[10px]">ARCHIVED DB</span>
+            </div>
+            <p id="modal-after-desc" class="text-[11px] text-emerald-800">Field crew cleared the site and uploaded timestamped photo proof.</p>
+          </div>
+        </div>
+
+        <!-- Right Column: Triage, Barangay, SLA & Deduplication Details -->
+        <div class="md:col-span-6 flex flex-col justify-between space-y-4 text-xs">
+          <div class="space-y-3">
+            <!-- Status & Priority Badges -->
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="modal-status-badge" class="px-2.5 py-1 rounded-full font-bold text-[11px] bg-amber-100 text-amber-800">IN PROGRESS</span>
+              <span id="modal-sla-badge" class="px-2.5 py-1 rounded-full font-mono font-semibold text-[11px] bg-slate-100 text-slate-700">SLA: 04h 15m left</span>
+            </div>
+
+            <!-- Citizen Description -->
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+              <span class="text-[10px] font-mono uppercase font-bold text-slate-400">Citizen Description</span>
+              <p id="modal-description" class="text-slate-800 mt-1 leading-relaxed">
+                Uncollected garbage bags piling up near the corner of Bonifacio Street and Gomez Street, obstructing pedestrian sidewalk.
+              </p>
+            </div>
+
+            <!-- Structured Metadata Grid -->
+            <div class="grid grid-cols-2 gap-2.5">
+              <div class="p-2.5 rounded-xl border border-slate-200">
+                <span class="block text-[10px] font-mono text-slate-400 uppercase">Barangay / Zone</span>
+                <span id="modal-barangay" class="font-bold text-slate-900">Centro 10 (Poblacion)</span>
+              </div>
+              <div class="p-2.5 rounded-xl border border-slate-200">
+                <span class="block text-[10px] font-mono text-slate-400 uppercase">Assigned Dept</span>
+                <span id="modal-dept" class="font-bold text-slate-900">City GSO / Sanitation</span>
+              </div>
+              <div class="p-2.5 rounded-xl border border-slate-200">
+                <span class="block text-[10px] font-mono text-slate-400 uppercase">Merged Duplicates</span>
+                <span id="modal-duplicates" class="font-bold text-indigo-600">12 Citizen Reports</span>
+              </div>
+              <div class="p-2.5 rounded-xl border border-slate-200">
+                <span class="block text-[10px] font-mono text-slate-400 uppercase">Sync Source</span>
+                <span id="modal-sync" class="font-bold text-slate-800">Offline Queue → Synced</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Footer Actions -->
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+            <button onclick="switchAdminView('records'); closeTicketModal();" class="px-3.5 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold transition">
+              Open in Records Table
+            </button>
+            <button onclick="closeTicketModal()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold transition">
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State Management
+    let isOffline = false;
+    let photoAttachedTo104 = false;
+
+    // 1. Section Filter Navigation
+    function switchSection(sectionKey) {
+      // Update active button styles
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        if (btn.dataset.nav === sectionKey) {
+          btn.classList.add('bg-white', 'text-slate-900', 'shadow-xs');
+          btn.classList.remove('text-slate-600');
+        } else {
+          btn.classList.remove('bg-white', 'text-slate-900', 'shadow-xs');
+          btn.classList.add('text-slate-600');
+        }
+      });
+
+      // Show/Hide sections
+      document.querySelectorAll('.blueprint-section').forEach(sec => {
+        if (sec.id === `sec-${sectionKey}`) {
+          sec.classList.remove('hidden');
+        } else {
+          sec.classList.add('hidden');
+        }
+      });
+    }
+
+    // 2. Global Offline / Online Mode Simulator
+    function toggleNetworkState() {
+      isOffline = !isOffline;
+      const toggleBtn = document.getElementById('network-toggle');
+      const dot = document.getElementById('network-dot');
+      const label = document.getElementById('network-label');
+      const archStatus = document.getElementById('arch-sync-status');
+      const adminPill = document.getElementById('admin-sync-pill');
+      const citizenSubmitBtn = document.getElementById('citizen-submit-btn');
+      const offlineCard = document.getElementById('citizen-offline-card');
+
+      if (isOffline) {
+        toggleBtn.className = "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border transition shadow-sm bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100";
+        dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+        label.textContent = "Mode: Offline (Local Queue)";
+        archStatus.textContent = "Queued (IndexedDB)";
+        adminPill.textContent = "DB: Cached Mode";
+        adminPill.className = "px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono text-[11px]";
+        citizenSubmitBtn.textContent = "Save Draft to Offline Queue";
+        citizenSubmitBtn.className = "w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-sm transition";
+        offlineCard.classList.remove('hidden');
+        document.querySelectorAll('.citizen-net-badge').forEach(el => {
+          el.textContent = "● Offline";
+          el.className = "citizen-net-badge px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px]";
+        });
+        showToast("Switched to Offline Mode: Reports now queue locally in IndexedDB.");
+      } else {
+        toggleBtn.className = "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border transition shadow-sm bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100";
+        dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+        label.textContent = "Mode: Online (Synced)";
+        archStatus.textContent = "Ready";
+        adminPill.textContent = "DB: Synced";
+        adminPill.className = "px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono text-[11px]";
+        citizenSubmitBtn.textContent = "Submit New Report";
+        citizenSubmitBtn.className = "w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm transition";
+        offlineCard.classList.add('hidden');
+        document.querySelectorAll('.citizen-net-badge').forEach(el => {
+          el.textContent = "● Online";
+          el.className = "citizen-net-badge px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px]";
+        });
+        showToast("Connection Restored: Queued offline drafts synced to server!");
+      }
+    }
+
+    // 3. Architecture Node Inspector
+    const nodeData = {
+      client: {
+        badge: "Selected Node: Client Edge",
+        title: "Offline-First Progressive Web App (PWA)",
+        desc: "Citizens can capture photos, drop GPS pins, and write descriptions even inside dead zones. Photos are automatically compressed client-side to ~350 KB and stored in IndexedDB until connectivity resumes.",
+        tags: ["IndexedDB", "Service Worker", "WebP Compression", "Vector Tiles"]
+      },
+      triage: {
+        badge: "Selected Node: Ingestion Middleware",
+        title: "Deduplication, Auto-Triage & SLA Engine",
+        desc: "Incoming reports are checked against active pins within a 30m radius to prevent duplicate clutter. Valid tickets receive an automated severity score, department routing tag, and SLA resolution countdown.",
+        tags: ["Geospatial Radius Check", "Parent Ticket ID", "SLA Timer"]
+      },
+      current_db: {
+        badge: "Selected Node: Active Store",
+        title: "CURRENT Database (Live Operational State)",
+        desc: "Holds only unresolved, active issues. Powers the Citizen 'Problems Near You' map and Admin Live Dispatch view. Tickets remain locked here until an 'After' resolution photo is uploaded.",
+        tags: ["Real-Time Sync", "GeoJSON Pins", "Before/After Gate"]
+      },
+      archived_db: {
+        badge: "Selected Node: Historical Store",
+        title: "ARCHIVED Database (Resolved + Data Mining)",
+        desc: "Stores verified resolved issues alongside Before & After photo proof. Powers historical heatmaps and data mining to detect seasonal flooding zones, chronic waste hotspots, and department SLA trends.",
+        tags: ["Heatmap Aggregation", "Trend Mining", "Audit Trail"]
+      }
+    };
+
+    function inspectNode(key) {
+      const data = nodeData[key];
+      if (!data) return;
+      document.getElementById('inspector-badge').textContent = data.badge;
+      document.getElementById('inspector-title').textContent = data.title;
+      document.getElementById('inspector-desc').textContent = data.desc;
+      const tagsContainer = document.getElementById('inspector-tags');
+      tagsContainer.innerHTML = data.tags.map(t => `<span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 font-mono text-[11px]">${t}</span>`).join('');
+    }
+
+    // 4. Citizen App Interactive Helpers
+    function simulatePhotoUpload() {
+      const box = document.getElementById('citizen-photo-box');
+      const txt = document.getElementById('citizen-photo-text');
+      box.classList.remove('border-slate-300', 'bg-slate-50');
+      box.classList.add('border-emerald-400', 'bg-emerald-50');
+      txt.textContent = "✓ Photo Attached (340 KB Compressed)";
+      showToast("Photo captured & compressed locally for offline resilience.");
+    }
+
+    function submitCitizenReport() {
+      if (isOffline) {
+        showToast("Saved locally! Report #115 will auto-sync when online.");
+      } else {
+        showToast("Report #115 submitted! Auto-triaged to City Engineering Office.");
+      }
+    }
+
+    function selectCitizenPin(type) {
+      const badge = document.getElementById('pin-drawer-badge');
+      const title = document.getElementById('pin-drawer-title');
+      const meta = document.getElementById('pin-drawer-meta');
+
+      if (type === 'drain') {
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800";
+        badge.textContent = "HIGH PRIORITY • SLA: 14h left";
+        title.textContent = "Clogged Storm Drain — Caritan Centro";
+        meta.textContent = "9 merged reports • Assigned to City Engineering";
+      } else if (type === 'garbage') {
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800";
+        badge.textContent = "IN PROGRESS • SLA: 04h left";
+        title.textContent = "Overflowing Trash Bin — Bonifacio St.";
+        meta.textContent = "12 merged reports • GSO Truck dispatched";
+      } else {
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800";
+        badge.textContent = "RESOLVED • PHOTO VERIFIED";
+        title.textContent = "Repaired Streetlight — Buntun Approach";
+        meta.textContent = "Moved to Archived DB • Before/After available";
+      }
+    }
+
+    // 5. FixMyStreet-Style Pin Modal Controller (Tuguegarao Tickets)
+    const tuguegaraoTickets = {
+      '108': {
+        id: '#108',
+        title: 'Dark Spot & Broken Streetlight — Balzain East',
+        status: 'CRITICAL • DISPATCHED',
+        statusClass: 'bg-rose-100 text-rose-800',
+        sla: 'SLA: 01h 50m remaining',
+        barangay: 'Balzain East (Maharlika Hwy)',
+        dept: 'City Electrical / CAGELCO I',
+        duplicates: '6 Citizen Reports (30m radius)',
+        sync: 'Offline-First PWA (3G Sync)',
+        gps: '17.6245° N, 121.7312° E',
+        caption: '📷 Citizen Photo • 10:14 AM',
+        description: 'Three consecutive busted streetlights creating a pitch-black blind spot for tricycles and pedestrians along Balzain highway intersection.',
+        resolved: false,
+        sceneBg: 'bg-slate-800',
+        sceneSvg: `
+          <svg class="w-full h-36" viewBox="0 0 260 130" fill="none">
+            <rect width="260" height="130" rx="8" fill="#0f172a"/>
+            <rect x="42" y="18" width="7" height="112" fill="#475569"/>
+            <path d="M42 22 H92" stroke="#475569" stroke-width="4"/>
+            <circle cx="88" cy="25" r="5" fill="#334155"/>
+            <path d="M78 16 L98 34 M98 16 L78 34" stroke="#ef4444" stroke-width="2"/>
+            <text x="112" y="65" fill="#94a3b8" font-size="10" font-family="JetBrains Mono" font-weight="bold">DARK SPOT • ZERO LUX</text>
+            <text x="112" y="82" fill="#64748b" font-size="9" font-family="JetBrains Mono">Balzain East Pole #42</text>
+          </svg>`
+      },
+      '104': {
+        id: '#104',
+        title: 'Uncollected Garbage & Illegal Dumping — Bonifacio St.',
+        status: 'IN PROGRESS',
+        statusClass: 'bg-amber-100 text-amber-800',
+        sla: 'SLA: 04h 15m remaining',
+        barangay: 'Centro 10 (Poblacion)',
+        dept: 'City General Services (GSO)',
+        duplicates: '12 Citizen Reports Merged',
+        sync: 'Offline Queue → Synced',
+        gps: '17.6132° N, 121.7270° E',
+        caption: '📷 Citizen Photo • 08:30 AM',
+        description: 'Uncollected garbage bags piling up near the corner of Bonifacio Street and Gomez Street, obstructing pedestrian sidewalk and attracting stray animals.',
+        resolved: false,
+        sceneBg: 'bg-amber-50',
+        sceneSvg: `
+          <svg class="w-full h-36" viewBox="0 0 260 130" fill="none">
+            <rect width="260" height="130" rx="8" fill="#fef3c7"/>
+            <rect x="0" y="95" width="260" height="35" fill="#cbd5e1"/>
+            <rect x="65" y="45" width="44" height="52" rx="4" fill="#475569"/>
+            <circle cx="122" cy="84" r="14" fill="#1e293b"/>
+            <circle cx="144" cy="86" r="12" fill="#334155"/>
+            <circle cx="105" cy="88" r="11" fill="#0f172a"/>
+            <text x="58" y="28" fill="#92400e" font-size="10" font-family="JetBrains Mono" font-weight="bold">Bonifacio St. Corner</text>
+          </svg>`
+      },
+      '109': {
+        id: '#109',
+        title: 'Flood-Triggering Drainage & Clogged Canal — Caritan',
+        status: 'HIGH PRIORITY',
+        statusClass: 'bg-rose-100 text-rose-800',
+        sla: 'SLA: 11h 20m remaining',
+        barangay: 'Caritan Centro',
+        dept: 'City Engineering Office',
+        duplicates: '9 Citizen Reports Merged',
+        sync: 'Online Direct',
+        gps: '17.6188° N, 121.7215° E',
+        caption: '📷 Citizen Photo • 07:45 AM',
+        description: 'Silt and plastic debris blocking storm canal inlet causing rapid street flooding during afternoon rainstorms.',
+        resolved: false,
+        sceneBg: 'bg-sky-50',
+        sceneSvg: `
+          <svg class="w-full h-36" viewBox="0 0 260 130" fill="none">
+            <rect width="260" height="130" rx="8" fill="#e0f2fe"/>
+            <rect x="0" y="75" width="260" height="55" fill="#38bdf8" opacity="0.5"/>
+            <rect x="85" y="82" width="90" height="24" rx="3" fill="#334155"/>
+            <path d="M95 82 V106 M110 82 V106 M125 82 V106 M140 82 V106 M155 82 V106" stroke="#94a3b8" stroke-width="2"/>
+            <text x="64" y="32" fill="#0369a1" font-size="10" font-family="JetBrains Mono" font-weight="bold">Caritan Storm Inlet #14</text>
+          </svg>`
+      },
+      '112': {
+        id: '#112',
+        title: 'Hazardous Sidewalk & Commuter Bottleneck — Ugac Norte',
+        status: 'TRIAGED • SCHEDULED',
+        statusClass: 'bg-amber-100 text-amber-800',
+        sla: 'SLA: 36h remaining',
+        barangay: 'Ugac Norte (Maharlika Hwy)',
+        dept: 'POSU / Public Order & Safety',
+        duplicates: '4 Citizen Reports Merged',
+        sync: 'Offline Queue → Synced',
+        gps: '17.6015° N, 121.7248° E',
+        caption: '📷 Citizen Photo • Yesterday',
+        description: 'Broken sidewalk slabs and unauthorized obstructions forcing commuters and students to walk onto the busy Maharlika Highway tricycle lane.',
+        resolved: false,
+        sceneBg: 'bg-slate-100',
+        sceneSvg: `
+          <svg class="w-full h-36" viewBox="0 0 260 130" fill="none">
+            <rect width="260" height="130" rx="8" fill="#475569"/>
+            <rect x="0" y="0" width="260" height="36" fill="#cbd5e1"/>
+            <rect x="85" y="14" width="75" height="28" rx="4" fill="#f59e0b"/>
+            <path d="M0 82 H260" stroke="#facc15" stroke-width="3" stroke-dasharray="12 8"/>
+            <text x="48" y="112" fill="#f8fafc" font-size="10" font-family="JetBrains Mono" font-weight="bold">Sidewalk Blocked → Lane Chokepoint</text>
+          </svg>`
+      },
+      '099': {
+        id: '#099',
+        title: 'Broken Streetlight — Buntun Highway Approach',
+        status: 'ARCHIVED • RESOLVED',
+        statusClass: 'bg-emerald-100 text-emerald-800',
+        sla: 'Completed in 16h (Within SLA)',
+        barangay: 'Pallua / Buntun Approach',
+        dept: 'City Electrical Maintenance',
+        duplicates: '7 Citizen Reports Merged',
+        sync: 'Verified & Archived',
+        gps: '17.6098° N, 121.7062° E',
+        caption: '📷 Before & After Verified',
+        description: 'Blinking LED fixture near Buntun Bridge east approach replaced and tested at night.',
+        resolved: true,
+        afterDesc: 'Electrical crew replaced ballast & LED module at 19:20. Timestamped photo uploaded and ticket moved to Archived DB.',
+        sceneBg: 'bg-emerald-50',
+        sceneSvg: `
+          <svg class="w-full h-36" viewBox="0 0 260 130" fill="none">
+            <rect width="260" height="130" rx="8" fill="#0f172a"/>
+            <rect x="65" y="20" width="6" height="110" fill="#94a3b8"/>
+            <path d="M65 24 H115" stroke="#94a3b8" stroke-width="4"/>
+            <polygon points="105,28 75,125 145,125" fill="#fde047" opacity="0.28"/>
+            <circle cx="110" cy="26" r="6" fill="#fef08a"/>
+            <text x="128" y="70" fill="#6ee7b7" font-size="10" font-family="JetBrains Mono" font-weight="bold">✓ Restored Lighting</text>
+          </svg>`
+      }
+    };
+
+    function openTicketModal(ticketKey) {
+      const t = tuguegaraoTickets[ticketKey];
+      if (!t) return;
+
+      document.getElementById('modal-ticket-id').textContent = t.id;
+      document.getElementById('modal-ticket-title').textContent = t.title;
+
+      const statusBadge = document.getElementById('modal-status-badge');
+      statusBadge.textContent = (ticketKey === '104' && photoAttachedTo104) ? 'ARCHIVED • VERIFIED' : t.status;
+      statusBadge.className = `px-2.5 py-1 rounded-full font-bold text-[11px] ${(ticketKey === '104' && photoAttachedTo104) ? 'bg-emerald-100 text-emerald-800' : t.statusClass}`;
+
+      document.getElementById('modal-sla-badge').textContent = t.sla;
+      document.getElementById('modal-description').textContent = t.description;
+      document.getElementById('modal-barangay').textContent = t.barangay;
+      document.getElementById('modal-dept').textContent = t.dept;
+      document.getElementById('modal-duplicates').textContent = t.duplicates;
+      document.getElementById('modal-sync').textContent = t.sync;
+      document.getElementById('modal-photo-caption').textContent = t.caption;
+      document.getElementById('modal-photo-gps').textContent = t.gps;
+
+      const photoRender = document.getElementById('modal-photo-render');
+      photoRender.className = `w-full h-52 flex flex-col items-center justify-center p-4 text-center ${t.sceneBg}`;
+      photoRender.innerHTML = t.sceneSvg;
+
+      const afterBox = document.getElementById('modal-after-photo-box');
+      if (t.resolved || (ticketKey === '104' && photoAttachedTo104)) {
+        afterBox.classList.remove('hidden');
+        document.getElementById('modal-after-desc').textContent = t.afterDesc || 'Field crew cleared the illegal dumping site and uploaded timestamped photo proof.';
+      } else {
+        afterBox.classList.add('hidden');
+      }
+
+      const modal = document.getElementById('ticket-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeTicketModal(event) {
+      if (event && event.target !== event.currentTarget) return;
+      const modal = document.getElementById('ticket-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // 6. Admin Portal Sub-View Switcher
+    function switchAdminView(viewKey) {
+      document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+        if (btn.dataset.adminTab === viewKey) {
+          btn.classList.add('bg-slate-900', 'text-white', 'shadow-sm');
+          btn.classList.remove('text-slate-700', 'hover:bg-slate-200/70');
+        } else {
+          btn.classList.remove('bg-slate-900', 'text-white', 'shadow-sm');
+          btn.classList.add('text-slate-700', 'hover:bg-slate-200/70');
+        }
+      });
+
+      document.querySelectorAll('.admin-view').forEach(v => {
+        if (v.id === `admin-view-${viewKey}`) {
+          v.classList.remove('hidden');
+        } else {
+          v.classList.add('hidden');
+        }
+      });
+
+      if (viewKey === 'heatmaps') {
+        updateHeatmapAnalytics();
+      }
+    }
+
+    // 6B. Streamlined Archived DB Heatmap & Hotspot Explorer (True Category x Season Data)
+    const archivedHeatmapModels = {
+      all: {
+        baseCount: 1284,
+        trend: "64% concentrated in Centro, Caritan & Balzain",
+        repeat: "40 Hotspot Pins",
+        repeatSub: "Recurring 3+ times in same 30m radius",
+        sla: "22.8 hrs",
+        dept: "Across Engineering, GSO, POSU & Electrical",
+        pos1: { left: "34%", top: "24%" },
+        posCore: { left: "39%", top: "30%" },
+        pos2: { left: "44%", top: "45%" },
+        pos3: { left: "54%", top: "22%" },
+        tag1: "📍 Highest Density: Centro Poblacion & Caritan Corridor",
+        bottomSummary: "Pattern: Drainage & garbage dominate rainy months; streetlights & sidewalks peak in dry months.",
+        insight: "40 recurring 30m pins account for 31% of all repeat dispatches across Tuguegarao City—exportable for GIS overlay.",
+        barangays: [
+          { name: "Centro Poblacion (1–12)", count: 429, pct: 33, repeatPins: "14 repeat pins" },
+          { name: "Caritan Centro & Norte", count: 318, pct: 25, repeatPins: "11 repeat pins" },
+          { name: "Balzain East & West", count: 264, pct: 21, repeatPins: "8 repeat pins" }
+        ],
+        seasons: {
+          monsoon: { count: 796, note: "Rainy Season Surge: Drainage & garbage tickets rise +62% during Jun–Nov." },
+          dry: { count: 488, note: "Dry Season Baseline: Streetlight & sidewalk repairs lead Mar–May dispatches." }
+        }
+      },
+      drainage: {
+        baseCount: 418,
+        trend: "68% concentrated in top 3 low-lying barangays",
+        repeat: "14 Hotspot Pins",
+        repeatSub: "Cleared 3+ times in same 30m radius",
+        sla: "19.4 hrs",
+        dept: "Primary: City Engineering Office",
+        pos1: { left: "26%", top: "14%" },
+        posCore: { left: "31%", top: "20%" },
+        pos2: { left: "38%", top: "42%" },
+        pos3: { left: "36%", top: "62%" },
+        tag1: "📍 Top Cluster: Caritan Centro & Don Domingo",
+        bottomSummary: "Pattern: 3.4x repeat clearings at same storm inlets before heavy rain.",
+        insight: "Caritan Canal #14 was cleared and re-opened 11 times in 12 months—flagging it for Engineering review rather than routine desilting.",
+        barangays: [
+          { name: "Caritan Centro", count: 184, pct: 44, repeatPins: "6 repeat pins" },
+          { name: "Centro 10 (Market)", count: 121, pct: 29, repeatPins: "5 repeat pins" },
+          { name: "Ugac Sur", count: 79, pct: 19, repeatPins: "3 repeat pins" }
+        ],
+        seasons: {
+          monsoon: { count: 314, note: "Rainy Season Peak (75% of annual volume): Heavy silt & plastic runoff." },
+          dry: { count: 104, note: "Dry Season Pre-Clearing: Preventive desilting along Caritan & Centro." }
+        }
+      },
+      lighting: {
+        baseCount: 312,
+        trend: "54% along Maharlika & Buntun corridors",
+        repeat: "9 Hotspot Pins",
+        repeatSub: "Poles re-reported within 60 days",
+        sla: "26.2 hrs",
+        dept: "Primary: City Electrical / CAGELCO I",
+        pos1: { left: "54%", top: "18%" },
+        posCore: { left: "59%", top: "24%" },
+        pos2: { left: "22%", top: "44%" },
+        pos3: { left: "58%", top: "45%" },
+        tag1: "📍 Top Cluster: Balzain East & Buntun Approach",
+        bottomSummary: "Pattern: Clusters along high-speed highway stretches with frequent voltage dips.",
+        insight: "19 streetlamp poles along Balzain East & Buntun Approach failed multiple times after repair, pointing to line or ballast defects.",
+        barangays: [
+          { name: "Balzain East", count: 142, pct: 46, repeatPins: "4 repeat pins" },
+          { name: "Pallua / Buntun", count: 96, pct: 31, repeatPins: "3 repeat pins" },
+          { name: "Pengue-Ruyu", count: 74, pct: 23, repeatPins: "2 repeat pins" }
+        ],
+        seasons: {
+          monsoon: { count: 178, note: "Rainy Season: Moisture & storm wind damage on highway fixtures." },
+          dry: { count: 134, note: "Dry Season: Evening commuter dark-spot reports along Buntun." }
+        }
+      },
+      garbage: {
+        baseCount: 365,
+        trend: "71% on 4 market & boundary corners",
+        repeat: "11 Hotspot Pins",
+        repeatSub: "Recurring weekly dump points",
+        sla: "14.8 hrs",
+        dept: "Primary: City General Services (GSO)",
+        pos1: { left: "38%", top: "38%" },
+        posCore: { left: "43%", top: "44%" },
+        pos2: { left: "30%", top: "28%" },
+        pos3: { left: "54%", top: "46%" },
+        tag1: "📍 Top Cluster: Centro 10 & Don Domingo Market",
+        bottomSummary: "Pattern: Peaks between 6 PM–9 PM on commercial perimeter corners.",
+        insight: "Bonifacio & Gomez corner accounts for 38% of all Centro waste tickets—useful for GSO route timing and barangay bin placement.",
+        barangays: [
+          { name: "Centro 10 (Bonifacio)", count: 210, pct: 58, repeatPins: "5 repeat pins" },
+          { name: "Centro 04 (Market)", count: 98, pct: 27, repeatPins: "4 repeat pins" },
+          { name: "Annafunan East", count: 57, pct: 15, repeatPins: "2 repeat pins" }
+        ],
+        seasons: {
+          monsoon: { count: 205, note: "Rainy Season: Uncollected bags washing toward nearby storm drains." },
+          dry: { count: 160, note: "Dry Season: Steady commercial market perimeter buildup." }
+        }
+      },
+      cables: {
+        baseCount: 189,
+        trend: "61% in Centro & Ugac school zones",
+        repeat: "6 Hotspot Pins",
+        repeatSub: "Persistent sidewalk obstructions",
+        sla: "41.5 hrs",
+        dept: "Primary: POSU & Telco Utilities",
+        pos1: { left: "38%", top: "62%" },
+        posCore: { left: "43%", top: "67%" },
+        pos2: { left: "38%", top: "36%" },
+        pos3: { left: "48%", top: "24%" },
+        tag1: "📍 Top Cluster: Ugac Norte & Centro School Zones",
+        bottomSummary: "Pattern: Concentrated near tricycle terminals and school pedestrian paths.",
+        insight: "Sidewalk obstructions and low-hanging cables cluster along Ugac Norte school corridors during peak commuter hours.",
+        barangays: [
+          { name: "Ugac Norte (Schools)", count: 115, pct: 61, repeatPins: "3 repeat pins" },
+          { name: "Centro Poblacion", count: 48, pct: 25, repeatPins: "2 repeat pins" },
+          { name: "Pengue-Ruyu", count: 26, pct: 14, repeatPins: "1 repeat pin" }
+        ],
+        seasons: {
+          monsoon: { count: 99, note: "Rainy Season: Sagging telco lines & flooded sidewalk detours." },
+          dry: { count: 90, note: "Dry Season: School-hour tricycle terminal sidewalk bottlenecks." }
+        }
+      }
+    };
+
+    function updateHeatmapAnalytics() {
+      const catKey = document.getElementById('heatmap-category-select').value;
+      const timeframe = document.getElementById('heatmap-timeframe-select').value;
+      const d = archivedHeatmapModels[catKey];
+      if (!d) return;
+
+      // Determine exact count & scale ratio for the selected season
+      let resolvedNum = d.baseCount;
+      let seasonNote = d.bottomSummary;
+      let badgeLabel = "1,284 ARCHIVED TICKETS (12M)";
+
+      if (timeframe === 'monsoon') {
+        resolvedNum = d.seasons.monsoon.count;
+        seasonNote = d.seasons.monsoon.note;
+        badgeLabel = "796 RAINY-SEASON TICKETS (JUN–NOV)";
+      } else if (timeframe === 'dry') {
+        resolvedNum = d.seasons.dry.count;
+        seasonNote = d.seasons.dry.note;
+        badgeLabel = "488 DRY-SEASON TICKETS (DEC–MAY)";
+      }
+
+      const ratio = resolvedNum / d.baseCount;
+      const topBarangayCount = Math.round(d.barangays[0].count * ratio);
+
+      document.getElementById('hm-archived-badge').textContent = badgeLabel;
+      document.getElementById('hm-kpi-count').textContent = `${resolvedNum.toLocaleString()} Archived`;
+      document.getElementById('hm-kpi-trend').textContent = d.trend;
+      document.getElementById('hm-kpi-repeat').textContent = d.repeat;
+      document.getElementById('hm-kpi-repeat-sub').textContent = d.repeatSub;
+      document.getElementById('hm-kpi-sla').textContent = d.sla;
+      document.getElementById('hm-kpi-dept').textContent = d.dept;
+
+      const b1 = document.getElementById('hm-blob-primary');
+      const bCore = document.getElementById('hm-blob-core');
+      const b2 = document.getElementById('hm-blob-secondary');
+      const b3 = document.getElementById('hm-blob-tertiary');
+
+      b1.style.left = d.pos1.left;
+      b1.style.top = d.pos1.top;
+      bCore.style.left = d.posCore.left;
+      bCore.style.top = d.posCore.top;
+      b2.style.left = d.pos2.left;
+      b2.style.top = d.pos2.top;
+      b3.style.left = d.pos3.left;
+      b3.style.top = d.pos3.top;
+
+      // Scale hotspot visual intensity subtly by season volume
+      const scaleVal = timeframe === 'dry' ? 'scale(0.85)' : (timeframe === 'monsoon' ? 'scale(1.08)' : 'scale(1)');
+      b1.style.transform = scaleVal;
+      b2.style.transform = scaleVal;
+      b3.style.transform = scaleVal;
+
+      document.getElementById('hm-hotspot-tag-1').textContent = `${d.tag1} (${topBarangayCount} tickets)`;
+      document.getElementById('hm-bottom-summary').textContent = seasonNote;
+      document.getElementById('hm-insight-text').textContent = d.insight;
+
+      // Render Barangay Frequency Bars
+      const barsEl = document.getElementById('hm-barangay-bars');
+      barsEl.innerHTML = d.barangays.map(b => `
+        <div class="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="font-bold text-slate-800">${b.name}</span>
+            <span class="font-mono text-slate-600">${Math.round(b.count * ratio)} tickets • <span class="text-rose-600 font-semibold">${b.repeatPins}</span></span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div class="h-full bg-rose-500 rounded-full" style="width: ${b.pct}%"></div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function exportAnalystData(format) {
+      const cat = document.getElementById('heatmap-category-select').selectedOptions[0].text;
+      showToast(`Exported Archived DB ${format} dataset for "${cat}" (ready for Excel / QGIS).`);
+    }
+
+    // Initialize heatmap data on load
+    document.addEventListener('DOMContentLoaded', () => {
+      updateHeatmapAnalytics();
+    });
+
+    // 7. Resolution Proof Gate Interactive Demo
+    function attachResolutionProof() {
+      photoAttachedTo104 = true;
+      const attachBtn = document.getElementById('btn-attach-proof');
+      const resolveBtn = document.getElementById('btn-mark-resolved');
+
+      attachBtn.textContent = '✓ "After" Photo Ready';
+      attachBtn.className = "px-3 py-2 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 font-semibold transition";
+
+      resolveBtn.disabled = false;
+      resolveBtn.className = "px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm cursor-pointer transition";
+      showToast('After-photo attached! Resolution gate unlocked for Ticket #104.');
+    }
+
+    function resolveTicket104() {
+      if (!photoAttachedTo104) return;
+      const card = document.getElementById('ticket-104-card');
+      const status = document.getElementById('ticket-104-status');
+      const actions = document.getElementById('ticket-104-actions');
+
+      card.className = "rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition";
+      status.className = "px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold text-[10px]";
+      status.textContent = "ARCHIVED • VERIFIED";
+      actions.innerHTML = `<button onclick="openTicketModal('104')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] transition">✓ Moved to Archived DB</button>`;
+
+      showToast('Ticket #104 verified & moved to Archived DB! 12 subscribed citizens notified.');
+    }
+
+    // 8. Toast Notification Helper (Replaces alert())
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = "pointer-events-auto bg-slate-900 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-lg border border-slate-700 flex items-center gap-2.5 max-w-sm transition-all duration-300";
+      toast.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span><span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3400);
+    }
+  </script>
+</body>
+</html>
